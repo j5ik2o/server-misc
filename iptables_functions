@@ -1,8 +1,7 @@
 # IPアドレスリスト取得関数定義
-IPLISTGET(){
-    echo "start iplist_get"
+GET_IPLIST(){
     # http://nami.jp/ipv4bycc/から最新版IPアドレスリストを取得する
-    wget -q http://nami.jp/ipv4bycc/cidr.txt.gz
+    wget http://nami.jp/ipv4bycc/cidr.txt.gz
     gunzip cidr.txt.gz
     # 最新版IPアドレスリストが取得できなかった場合
     if [ ! -f cidr.txt ]; then
@@ -18,7 +17,6 @@ IPLISTGET(){
     fi
     # 最新版IPアドレスリストを /tmpへバックアップする
     /bin/mv cidr.txt /tmp/cidr.txt
-    echo "end iplist_get"
 }
 
 # ACCEPT_COUNTRY_MAKE関数定義
@@ -42,13 +40,42 @@ DROP_COUNTRY_MAKE(){
     echo "start drop_country_make"
     MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
     COUNT=0
+    iptables -A DROP_COUNTRY -j LOG --log-prefix '[IPTABLES DENY_COUNTRY] : '
     for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
     do
         COUNT=`expr $COUNT + 1`
        	echo "COUNT = $COUNT/$MAX" 
-        iptables -A DROP_COUNTRY -s $addr -m limit --limit 1/s -j LOG --log-prefix '[TABLES DENY_COUNTRY] : '
         iptables -A DROP_COUNTRY -s $addr -j DROP
     done
     echo "end drop_country_make"
+}
+
+ACCEPT_SOURCE_MAKE(){
+  echo "start accept_source_make : $1"
+  MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
+  COUNT=0
+  $IPTABLES -N ACCEPT_${1}
+  for addr in `cat $2 | grep -v '^#' | grep .`
+  do
+    COUNT=`expr $COUNT + 1`
+    echo "COUNT = $COUNT/$MAX"
+    $IPTABLES -A ACCEPT_${1} -s $addr -j ACCEPT
+  done 
+  echo "end accept_source_make : $1"
+}
+
+DROP_SOURCE_MAKE(){
+  echo "start drop_source_make : $1"
+  MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
+  COUNT=0
+  $IPTABLES -N DROP_${1}
+  $IPTABLES -A DROP_${1} LOG --log-prefix "[IPTABLES DROP_${1}] : "
+  for addr in `cat $2 | grep -v '^#' | grep .`
+  do
+    COUNT=`expr $COUNT + 1`
+    echo "COUNT = $COUNT/$MAX"
+    $IPTABLES -A DROP_${1} -s $addr -j DROP
+  done 
+  echo "end drop_source_make : $1"
 }
 
