@@ -1,0 +1,54 @@
+# IPアドレスリスト取得関数定義
+IPLISTGET(){
+    echo "start iplist_get"
+    # http://nami.jp/ipv4bycc/から最新版IPアドレスリストを取得する
+    wget -q http://nami.jp/ipv4bycc/cidr.txt.gz
+    gunzip cidr.txt.gz
+    # 最新版IPアドレスリストが取得できなかった場合
+    if [ ! -f cidr.txt ]; then
+        if [ -f /tmp/cidr.txt ]; then
+            # バックアップがある場合はその旨をroot宛にメール通知して処理を打ち切る
+            echo cidr.txt was read from the backup! | mail -s $0 root
+            exit 1
+        else
+            # バックアップがない場合はその旨をroot宛にメール通知して処理を打ち切る
+            echo cidr.txt not found!|mail -s $0 root
+            exit 1
+        fi
+    fi
+    # 最新版IPアドレスリストを /tmpへバックアップする
+    /bin/mv cidr.txt /tmp/cidr.txt
+    echo "end iplist_get"
+}
+
+# ACCEPT_COUNTRY_MAKE関数定義
+# 指定された国のアドレスからのアクセスを許可するユーザ定義チェイン作成
+ACCEPT_COUNTRY_MAKE(){
+    echo "start accept_country_make"
+    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
+    COUNT=0
+    for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
+    do
+        COUNT=`expr $COUNT + 1`
+       	echo "COUNT = $COUNT/$MAX" 
+	iptables -A ACCEPT_COUNTRY -s $addr -j ACCEPT
+    done
+    echo "end accept_country_make"
+}
+
+# DROP_COUNTRY_MAKE関数定義
+# 指定された国のアドレスからのアクセスを破棄するユーザ定義チェイン作成
+DROP_COUNTRY_MAKE(){
+    echo "start drop_country_make"
+    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
+    COUNT=0
+    for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
+    do
+        COUNT=`expr $COUNT + 1`
+       	echo "COUNT = $COUNT/$MAX" 
+        iptables -A DROP_COUNTRY -s $addr -m limit --limit 1/s -j LOG --log-prefix '[TABLES DENY_COUNTRY] : '
+        iptables -A DROP_COUNTRY -s $addr -j DROP
+    done
+    echo "end drop_country_make"
+}
+
