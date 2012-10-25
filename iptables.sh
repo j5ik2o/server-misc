@@ -16,9 +16,9 @@ IPTABLES=/sbin/iptables
 #---------------------------------------#
 
 # アドレスリスト取得
-. /root/script/iptables_functions
+. ./iptables_functions
 
-IPLISTGET
+GET_IPLIST
 
 # 内部ネットワークのネットマスク取得
 LOCALNET_MASK=`LANG=C ifconfig $LAN|sed -e 's/^.*Mask:\([^ ]*\)$/\1/p' -e d`
@@ -31,7 +31,6 @@ LOCALNET=$LOCALNET_ADDR/$LOCALNET_MASK
 $IPTABLES -F
 $IPTABLES -X
 
-# デフォルトルール(以降のルールにマッチしなかった場合に適用するルール)設定
 $IPTABLES -P INPUT   DROP   # 受信はすべて破棄
 $IPTABLES -P OUTPUT  ACCEPT # 送信はすべて許可
 $IPTABLES -P FORWARD DROP   # 通過はすべて破棄

@@ -19,7 +19,8 @@ IPTABLES=./iptables.sh
 
 # IPアドレスリスト最新化
 rm -f IPLIST.new
-IPLISTGET
+GET_IPLIST
+
 for country in $COUNTRY_CODE
 do
     if [ -f /tmp/cidr.txt ]; then
