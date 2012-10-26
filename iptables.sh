@@ -44,7 +44,7 @@ $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 if [ "${ALLOW_HOSTS[@]}" ]; then
   for ALLOW_HOST in ${ALLOW_HOSTS[@]}
   do
-    $IPTABLES -A INPUT -p tcp -s $ALLOW_HOST -j ACCEPT
+    $IPTABLES -A INPUT -s $ALLOW_HOST -j ACCEPT
   done
 fi
 
