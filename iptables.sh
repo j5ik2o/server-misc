@@ -12,10 +12,18 @@ HTTP_PORT=80,8081,8082
 IDENT_PORT=113
 SSH_PORT=22
 
+ALLOW_HOSTS=("221.243.26.162/32")
+
 USER_CONFIG() {
 
-}
+# ssh
+$IPTABLES -A INPUT -p tcp --dport 22 -j ACCEPT_COUNTRY
 
+# elmo 
+$IPTABLES -A INPUT -p tcp --dport 8081:8082 -j ACCEPT_MOBILE
+$IPTABLES -A INPUT -p udp --dport 10001 -j ACCEPT_MOBILE
+
+}
 
 #---------------------------------------#
 # 設定終了                              #
