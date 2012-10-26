@@ -24,11 +24,11 @@ GET_IPLIST(){
 ACCEPT_COUNTRY_MAKE(){
   echo "start accept_country_make"
   if [ "$DEBUG" = "1" ]; then
-    MAX=`cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'|wc -l`
+    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
     COUNT=0
   fi
   $IPTABLES -N ACCEPT_${1}
-  for addr in `cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'`
+  for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
   do
     if [ "$DEBUG" = "1" ]; then
       COUNT=`expr $COUNT + 1`
@@ -44,17 +44,17 @@ ACCEPT_COUNTRY_MAKE(){
 DROP_COUNTRY_MAKE(){
   echo "start drop_country_make"
   if [ "$DEBUG" = "1" ]; then
-    MAX=`cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'|wc -l`
+    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
     COUNT=0
   fi
   $IPTABLES -N DROP_${1}
-  $IPTABLES -A DROP_${1} -j LOG --log-prefix "[NF:DROP_${1}] : "
-  for addr in `cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'`
+  for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
   do
     if [ "$DEBUG" = "1" ]; then
       COUNT=`expr $COUNT + 1`
       echo "COUNT = $COUNT/$MAX" 
     fi
+    $IPTABLES -A DROP_${1} -s $addr -j LOG --log-prefix "[NF:DROP_${1}] : "
     $IPTABLES -A DROP_${1} -s $addr -j DROP
   done
   echo "end drop_country_make"
@@ -85,13 +85,13 @@ DROP_SOURCE_MAKE(){
     COUNT=0
   fi
   $IPTABLES -N DROP_${1}
-  $IPTABLES -A DROP_${1} -j LOG --log-prefix "[NF:DROP_${1}] : "
   for addr in `cat $2 | grep -v '^#' | grep .`
   do
     if [ "$DEBUG" = "1" ]; then
       COUNT=`expr $COUNT + 1`
       echo "COUNT = $COUNT/$MAX"
     fi
+    $IPTABLES -A DROP_${1} -s $addr -j LOG --log-prefix "[NF:DROP_${1}] : "
     $IPTABLES -A DROP_${1} -s $addr -j DROP
   done 
   echo "end drop_source_make : $1"
