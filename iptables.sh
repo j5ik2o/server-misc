@@ -60,17 +60,17 @@ $IPTABLES -A INPUT -s $LOCALNET -j ACCEPT
 $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 if [ "${ALLOW_HOSTS[@]}" ]; then
-  for allow_host in ${ALLOW_HOSTS[@]}
+  for ALLOW_HOST in ${ALLOW_HOSTS[@]}
   do
-    $IPTABLES -A INPUT -p tcp -s $allow_host -j ACCEPT # allow_host -> SELF
+    $IPTABLES -A INPUT -p tcp -s $ALLOW_HOST -j ACCEPT
   done
 fi
 
 if [ "${DENY_HOSTS[@]}" ]; then
-  for host in ${DENY_HOSTS[@]}
+  for DENY_HOST in ${DENY_HOSTS[@]}
   do
-    $IPTABLES -A INPUT -s $ip -m limit --limit 1/s -j LOG --log-prefix "[NF:DENY_HOST] : "
-    $IPTABLES -A INPUT -s $ip -j DROP
+    $IPTABLES -A INPUT -s $DENY_HOST -m limit --limit 1/s -j LOG --log-prefix "[NF:DENY_HOST] : "
+    $IPTABLES -A INPUT -s $DENY_HOST -j DROP
   done
 fi
 
