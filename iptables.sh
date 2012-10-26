@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
 #---------------------------------------#
 # 設定開始                              #
 #---------------------------------------#
+IPTABLES=/sbin/iptables
 
 # インタフェース名定義
 LAN=eth0
@@ -11,7 +12,11 @@ HTTP_PORT=80,8081,8082
 IDENT_PORT=113
 SSH_PORT=22
 
-IPTABLES=/sbin/iptables
+USER_CONFIG() {
+
+}
+
+
 #---------------------------------------#
 # 設定終了                              #
 #---------------------------------------#
@@ -46,12 +51,25 @@ $IPTABLES -A INPUT -s $LOCALNET -j ACCEPT
 # ---
 $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+if [ "${ALLOW_HOSTS[@]}" ]; then
+  for allow_host in ${ALLOW_HOSTS[@]}
+  do
+    $IPTABLES -A INPUT -p tcp -s $allow_host -j ACCEPT # allow_host -> SELF
+  done
+fi
+
+if [ "${DENY_HOSTS[@]}" ]; then
+  for host in ${DENY_HOSTS[@]}
+  do
+    $IPTABLES -A INPUT -s $ip -m limit --limit 1/s -j LOG --log-prefix "[NF:DENY_HOST] : "
+    $IPTABLES -A INPUT -s $ip -j DROP
+  done
+fi
+
 sh ./iptables_setup_chains.sh 
 
 # デフォルトで日本以外からは受け付けない
 $IPTABLES -A INPUT -j DROP_COUNTRY
-
-##$IPTABLES -A INPUT -p tcp --dport 22 -j ACCEPT
 
 # ---
 # Stealth Scan Attack
@@ -164,15 +182,9 @@ $IPTABLES -A OUTPUT ! -d $LOCALNET -p udp -m multiport --sports 135,137,138,139,
 # 全ホストからの入力許可
 # ---
 # icmp
-$IPTABLES -A INPUT -p icmp -j ACCEPT
+$IPTABLES -A INPUT -p icmp -j ACCEPT_CONTRY
 
-# ssh
-$IPTABLES -A INPUT -p tcp --dport 22 -j ACCEPT_COUNTRY
-
-# elmo 
-$IPTABLES -A INPUT -p tcp --dport 8081:8082 -j ACCEPT_MOBILE
-$IPTABLES -A INPUT -p udp --dport 10001 -j ACCEPT_MOBILE
-
+USER_CONFIG
 
 # ブロードキャストアドレス宛pingには応答しない
 sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1 > /dev/null
