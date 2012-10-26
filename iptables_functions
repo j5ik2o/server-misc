@@ -22,43 +22,57 @@ GET_IPLIST(){
 # ACCEPT_COUNTRY_MAKE関数定義
 # 指定された国のアドレスからのアクセスを許可するユーザ定義チェイン作成
 ACCEPT_COUNTRY_MAKE(){
-    echo "start accept_country_make"
-    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
+  echo "start accept_country_make"
+  if [ "$DEBUG" = "1" ]; then
+    MAX=`cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'|wc -l`
     COUNT=0
-    for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
-    do
-        COUNT=`expr $COUNT + 1`
-       	echo "COUNT = $COUNT/$MAX" 
-	iptables -A ACCEPT_COUNTRY -s $addr -j ACCEPT
-    done
-    echo "end accept_country_make"
+  fi
+  $IPTABLES -N ACCEPT_${1}
+  for addr in `cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'`
+  do
+    if [ "$DEBUG" = "1" ]; then
+      COUNT=`expr $COUNT + 1`
+      echo "COUNT = $COUNT/$MAX" 
+    fi
+    $IPTABLES -A ACCEPT_${1} -s $addr -j ACCEPT
+  done
+  echo "end accept_country_make"
 }
 
 # DROP_COUNTRY_MAKE関数定義
 # 指定された国のアドレスからのアクセスを破棄するユーザ定義チェイン作成
 DROP_COUNTRY_MAKE(){
-    echo "start drop_country_make"
-    MAX=`cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'|wc -l`
+  echo "start drop_country_make"
+  if [ "$DEBUG" = "1" ]; then
+    MAX=`cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'|wc -l`
     COUNT=0
-    iptables -A DROP_COUNTRY -j LOG --log-prefix '[IPTABLES DENY_COUNTRY] : '
-    for addr in `cat /tmp/cidr.txt|grep ^$1|awk '{print $2}'`
-    do
-        COUNT=`expr $COUNT + 1`
-       	echo "COUNT = $COUNT/$MAX" 
-        iptables -A DROP_COUNTRY -s $addr -j DROP
-    done
-    echo "end drop_country_make"
+  fi
+  $IPTABLES -N DROP_${1}
+  $IPTABLES -A DROP_${1} -j LOG --log-prefix "[NF:DROP_${1}] : "
+  for addr in `cat /tmp/cidr.txt|grep ^$2|awk '{print $2}'`
+  do
+    if [ "$DEBUG" = "1" ]; then
+      COUNT=`expr $COUNT + 1`
+      echo "COUNT = $COUNT/$MAX" 
+    fi
+    $IPTABLES -A DROP_${1} -s $addr -j DROP
+  done
+  echo "end drop_country_make"
 }
 
 ACCEPT_SOURCE_MAKE(){
   echo "start accept_source_make : $1"
-  MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
-  COUNT=0
+  if [ "$DEBUG" = "1" ]; then
+    MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
+    COUNT=0
+  fi
   $IPTABLES -N ACCEPT_${1}
   for addr in `cat $2 | grep -v '^#' | grep .`
   do
-    COUNT=`expr $COUNT + 1`
-    echo "COUNT = $COUNT/$MAX"
+    if [ "$DEBUG" = "1" ]; then
+      COUNT=`expr $COUNT + 1`
+      echo "COUNT = $COUNT/$MAX"
+    fi
     $IPTABLES -A ACCEPT_${1} -s $addr -j ACCEPT
   done 
   echo "end accept_source_make : $1"
@@ -66,14 +80,18 @@ ACCEPT_SOURCE_MAKE(){
 
 DROP_SOURCE_MAKE(){
   echo "start drop_source_make : $1"
-  MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
-  COUNT=0
+  if [ "$DEBUG" = "1" ]; then
+    MAX=`cat $2 | grep -v '^#' | grep . | wc -l`
+    COUNT=0
+  fi
   $IPTABLES -N DROP_${1}
-  $IPTABLES -A DROP_${1} LOG --log-prefix "[IPTABLES DROP_${1}] : "
+  $IPTABLES -A DROP_${1} -j LOG --log-prefix "[NF:DROP_${1}] : "
   for addr in `cat $2 | grep -v '^#' | grep .`
   do
-    COUNT=`expr $COUNT + 1`
-    echo "COUNT = $COUNT/$MAX"
+    if [ "$DEBUG" = "1" ]; then
+      COUNT=`expr $COUNT + 1`
+      echo "COUNT = $COUNT/$MAX"
+    fi
     $IPTABLES -A DROP_${1} -s $addr -j DROP
   done 
   echo "end drop_source_make : $1"

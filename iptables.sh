@@ -9,6 +9,7 @@ LAN=eth0
 
 HTTP_PORT=80,8081,8082
 IDENT_PORT=113
+SSH_PORT=22
 
 IPTABLES=/sbin/iptables
 #---------------------------------------#
@@ -17,8 +18,6 @@ IPTABLES=/sbin/iptables
 
 # アドレスリスト取得
 . ./iptables_functions
-
-GET_IPLIST
 
 # 内部ネットワークのネットマスク取得
 LOCALNET_MASK=`LANG=C ifconfig $LAN|sed -e 's/^.*Mask:\([^ ]*\)$/\1/p' -e d`
@@ -42,53 +41,23 @@ $IPTABLES -A INPUT -i lo -j ACCEPT
 $IPTABLES -A INPUT -s $LOCALNET -j ACCEPT
 
 # ---
-# 独自チェイン定義
-# ---
-
-# 日本
-$IPTABLES -N ACCEPT_COUNTRY
-ACCEPT_COUNTRY_MAKE JP
-
-# 中国・韓国・台湾
-$IPTABLES -N DROP_COUNTRY
-DROP_COUNTRY_MAKE CN
-DROP_COUNTRY_MAKE KR
-DROP_COUNTRY_MAKE TW
-
-# モバイルキャリア
-ACCEPT_SOURCE_MAKE SOFTBANK ./carrier/softbank.lst
-ACCEPT_SOURCE_MAKE AU ./carrier/au.lst
-ACCEPT_SOURCE_MAKE DOCOMO ./carrier/docomo.lst
-
-$IPTABLES -N ACCEPT_MOBILE
-$IPTABLES -A ACCEPT_MOBILE -j ACCEPT_SOFTBANK
-$IPTABLES -A ACCEPT_MOBILE -j ACCEPT_AU
-$IPTABLES -A ACCEPT_MOBILE -j ACCEPT_DOCOMO
-
-# モバイルキャリア
-DROP_SOURCE_MAKE SOFTBANK ./carrier/softbank.lst
-DROP_SOURCE_MAKE AU ./carrier/au.lst
-DROP_SOURCE_MAKE DOCOMO ./carrier/docomo.lst
-
-$IPTABLES -N DROP_MOBILE
-$IPTABLES -A DROP_MOBILE -j DROP_SOFTBANK
-$IPTABLES -A DROP_MOBILE -j DROP_AU
-$IPTABLES -A DROP_MOBILE -j DROP_DOCOMO
-
-# デフォルトで日本以外からは受け付けない
-$IPTABLES -A INPUT -j DROP_COUNTRY
-
-# ---
 # 接続済みパケットは許可
 # 内部から行ったアクセスに対する外部からの返答アクセスを許可
 # ---
 $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+sh ./iptables_setup_chains.sh 
+
+# デフォルトで日本以外からは受け付けない
+$IPTABLES -A INPUT -j DROP_COUNTRY
+
+##$IPTABLES -A INPUT -p tcp --dport 22 -j ACCEPT
+
 # ---
-# Stealth Scan
+# Stealth Scan Attack
 # ---
 $IPTABLES -N STEALTH_SCAN
-$IPTABLES -A STEALTH_SCAN -j LOG --log-prefix "[IPTABLES STEALTH_SCAN_ATTACK]: "
+$IPTABLES -A STEALTH_SCAN -j LOG --log-prefix "[NF:STEALTH_SCAN] : "
 $IPTABLES -A STEALTH_SCAN -j DROP
 
 $IPTABLES -A INPUT -p tcp --tcp-flags SYN,ACK SYN,ACK -m state --state NEW -j STEALTH_SCAN
@@ -107,7 +76,7 @@ $IPTABLES -A INPUT -p tcp --tcp-flags ACK,URG URG     -j STEALTH_SCAN
 # フラグメントパケットによるポートスキャン, DOS攻撃対策
 # フラグメント化されたパケットはログを記録して破棄
 # ---
-$IPTABLES -A INPUT -f -j LOG --log-prefix '[IPTABLES FRAGMENT_ATTACK] : '
+$IPTABLES -A INPUT -f -j LOG --log-prefix '[NF:FRAGMENT_ATTACK] : '
 $IPTABLES -A INPUT -f -j DROP
 
 # ---
@@ -123,9 +92,10 @@ $IPTABLES -A PING_OF_DEATH -p icmp --icmp-type echo-request \
          --hashlimit-name t_PING_OF_DEATH \
          -j RETURN
 
-$IPTABLES -A PING_OF_DEATH -j LOG --log-prefix '[IPTABLES PINGDEATH_ATTACK] : '
+$IPTABLES -A PING_OF_DEATH -j LOG --log-prefix '[NF:PINGDEATH:ATCK] : '
 $IPTABLES -A PING_OF_DEATH -j DROP
 $IPTABLES -A INPUT -p icmp --icmp-type echo-request -j PING_OF_DEATH
+
 
 # ---
 # SYN Flood Attack
@@ -140,10 +110,9 @@ $IPTABLES -A SYN_FLOOD -p tcp --syn \
          --hashlimit-name t_SYN_FLOOD \
          -j RETURN
 
-$IPTABLES -A SYN_FLOOD -j LOG --log-prefix "[IPTABLES SYN_FLOOD_ATTACK] : "
+$IPTABLES -A SYN_FLOOD -j LOG --log-prefix "[NF:SYN_FLOOD:ATCK] : "
 $IPTABLES -A SYN_FLOOD -j DROP
 $IPTABLES -A INPUT -p tcp --syn -j SYN_FLOOD
-
 
 # ---
 # HTTP DoS/DDos Attack
@@ -158,7 +127,7 @@ $IPTABLES -A HTTP_DOS -p tcp -m multiport --dports $HTTP_PORT \
          --hashlimit-name t_HTTP_DOS \
          -j RETURN
 
-$IPTABLES -A HTTP_DOS -j LOG --log-prefix "[IPTABLES HTTP_DOS_ATTACK] : "
+$IPTABLES -A HTTP_DOS -j LOG --log-prefix "[NF:HTTP_DOS:ATCK] : "
 $IPTABLES -A HTTP_DOS -j DROP
 
 $IPTABLES -A INPUT -p tcp -m multiport --dports $HTTP_PORT -j HTTP_DOS
@@ -172,17 +141,17 @@ $IPTABLES -A INPUT -p tcp -m multiport --dports $IDENT_PORT -j REJECT --reject-w
 # SSH Brute Force Attack
 # ---
 $IPTABLES -A INPUT -p tcp --syn -m multiport --dports $SSH_PORT -m recent --name ssh_attack --set
-$IPTABLES -A INPUT -p tcp --syn -m multiport --dports $SSH_PORT -m recent --name ssh_attack --rcheck --seconds 60 --hitcount 5 -j LOG --log-prefix "[IPTABLES SSH_BRUTE_FORCE] : "
+$IPTABLES -A INPUT -p tcp --syn -m multiport --dports $SSH_PORT -m recent --name ssh_attack --rcheck --seconds 60 --hitcount 5 -j LOG --log-prefix "[NF:SSH_BRUTE_FORCE] : "
 $IPTABLES -A INPUT -p tcp --syn -m multiport --dports $SSH_PORT -m recent --name ssh_attack --rcheck --seconds 60 --hitcount 5 -j REJECT --reject-with tcp-reset
 
 # ---
 # 全ホスト(ブロードキャストアドレス、マルチキャストアドレス)宛パケットはログを記録せずに破棄
 # ---
-$IPTABLES -A INPUT -d 192.168.1.255   -j LOG --log-prefix "[IPTABLES DROP_BROADCAST] : "
+$IPTABLES -A INPUT -d 192.168.1.255   -j LOG --log-prefix "[NF:DROP_BROADCAST] : "
 $IPTABLES -A INPUT -d 192.168.1.255   -j DROP
-$IPTABLES -A INPUT -d 255.255.255.255 -j LOG --log-prefix "[IPTABLES DROP_BROADCAST] : "
+$IPTABLES -A INPUT -d 255.255.255.255 -j LOG --log-prefix "[NF:DROP_BROADCAST] : "
 $IPTABLES -A INPUT -d 255.255.255.255 -j DROP
-$IPTABLES -A INPUT -d 224.0.0.1       -j LOG --log-prefix "[IPTABLES DROP_BROADCAST] : "
+$IPTABLES -A INPUT -d 224.0.0.1       -j LOG --log-prefix "[NF:DROP_BROADCAST] : "
 $IPTABLES -A INPUT -d 224.0.0.1       -j DROP
 
 # 外部とのNetBIOS関連のアクセスはログを記録せずに破棄
@@ -227,9 +196,9 @@ do
 done
 
 # 上記のルールにマッチしなかったアクセスはログを記録して破棄
-$IPTABLES -A INPUT -j LOG --log-prefix '[IPTABLES INPUT] : '
+$IPTABLES -A INPUT -j LOG --log-prefix '[NF:INPUT] : '
 $IPTABLES -A INPUT -j DROP
-$IPTABLES -A FORWARD -j LOG --log-prefix '[IPTABLES FORWARD] : '
+$IPTABLES -A FORWARD -j LOG --log-prefix '[NF:FORWARD] : '
 $IPTABLES -A FORWARD -j DROP
 
 echo "start iptables-save"
