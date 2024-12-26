@@ -1,6 +1,6 @@
 #!/bin/bash
 
-IPTABLES=/sbin/iptables
+IPTABLES=/usr/sbin/iptables
 
 # アドレスリスト取得
 . ./iptables_functions

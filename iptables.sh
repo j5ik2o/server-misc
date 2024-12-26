@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 #---------------------------------------#
 # 設定開始                              #
 #---------------------------------------#
-IPTABLES=/sbin/iptables
+IPTABLES=/usr/sbin/iptables
 
 . ./iptables_config.sh
 
@@ -14,11 +14,6 @@ IPTABLES=/sbin/iptables
 # アドレスリスト取得
 . ./iptables_functions
 
-# 内部ネットワークのネットマスク取得
-LOCALNET_MASK=`LANG=C ifconfig $LAN|sed -e 's/^.*Mask:\([^ ]*\)$/\1/p' -e d`
-
-# 内部ネットワークアドレス取得
-LOCALNET_ADDR=`LANG=C netstat -rn|grep $LAN|grep $LOCALNET_MASK|cut -f1 -d' '`
 LOCALNET=$LOCALNET_ADDR/$LOCALNET_MASK
 
 # 初期化
